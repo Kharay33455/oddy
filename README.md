@@ -1,0 +1,2 @@
+# oddy
+The Odysseus server

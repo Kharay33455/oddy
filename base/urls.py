@@ -6,5 +6,6 @@ app_name = "base"
 urlpatterns = [
 
 	path('', index, name='index'),
+	path('viewer/', viewer, name='viewer')
 
 ]

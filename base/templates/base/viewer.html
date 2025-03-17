@@ -1,0 +1,16 @@
+<div>
+    <ul>
+        {% for shot in snaps %}
+    <li>
+        <p>
+            {{shot.text}}
+        </p>
+        <div>
+            <img src="{{shot.photo.url}}" style="max-width : 500px"/>
+        </div>
+
+    </li>
+        {% endfor %}
+    </ul>
+
+</div>

@@ -60,6 +60,5 @@ def viewer(request):
 def pinger(request):
 	while True:
 		resp = requests.get('https://dosojincargos.online')
-		print(resp)
 		time.sleep(random.randint(300, 600))
 	

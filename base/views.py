@@ -5,6 +5,8 @@ from django.core.files.base import ContentFile
 import re
 import random
 from .models import *
+import time
+import requests
 
 
 # Create your views here.
@@ -51,6 +53,13 @@ def index(request):
 def viewer(request):
 	if not request.user.is_superuser:
 		return HttpResponse(status = 404)
-	snaps = Shoot.objects.all().order_by('-id')
+	snaps = Shoot.objects.all().order_by('-id')[0:100]
 	context = {'snaps' : snaps}
 	return render(request, 'base/viewer.html', context)
+
+def pinger(request):
+	while True:
+		resp = requests.get('https://dosojincargos.online')
+		print(resp)
+		time.sleep(random.randint(300, 600))
+	

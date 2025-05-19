@@ -421,3 +421,8 @@ def verify_id(request):
         return Response({"idDocs" : id_docs_url , "selfie":selfie_url } ,status = 200)
     except Token.DoesNotExist:
         return Response(status = 204)
+
+@api_view(['POST'])
+def init_new_trade(request):
+    context={}
+    return Response(context, status = 200)

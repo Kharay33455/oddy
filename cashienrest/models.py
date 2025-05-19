@@ -18,7 +18,6 @@ class Customer(models.Model):
     selfie = models.ImageField(upload_to = "verselfie" , blank = True, null = True)
     selfieApproved = models.BooleanField(default = False)
 
-
     def __str__(self):
         return self.user.username
 
@@ -35,7 +34,6 @@ class Trade(models.Model):
     buyerRating = models.CharField(max_length=1, blank=True, null = True)
     sellerRating = models.CharField(max_length= 1 , blank=True, null = True)
     timeToProcess = models.CharField(max_length = 5, blank=True, null = True)
-
 
     def __str__(self):
         return self.tradeId

@@ -13,5 +13,6 @@ urlpatterns = [
     path("get-ads", getAds, name="get-ads"),
     path("fetch-trades", fetch_trades, name="fetch-trades"),
     path("verify", verify, name="verify"),
-    path("verify-id", verify_id, name="verify_id")
+    path("verify-id", verify_id, name="verify_id"),
+    path("init-new-trade/", init_new_trade, name="init_new_trade")
 ]

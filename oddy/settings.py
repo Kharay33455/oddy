@@ -23,17 +23,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-=wz&=36mn$o-bx=mjzqtz6ovo2squu8da8ilu$9ik0j#j#ar*h"
+SECRET_KEY = os.getenv("SK")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+if os.getenv("DEBUG") == "TRUE":
+    DEBUG = True
+else:
+    DEBUG = False
 
-ALLOWED_HOSTS = ["yueh33455.pythonanywhere.com", "127.0.0.1"]
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS").split(" ")
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    "rest_framework.authtoken",
+    "corsheaders",
+    "rest_framework",
+    "cashienrest",
 	"base.apps.BaseConfig",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -44,6 +51,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -52,6 +60,11 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+
+#CORS_ALLOWED_ORIGINS = os.getenv("CORS").split(" ")
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 ROOT_URLCONF = "oddy.urls"
 

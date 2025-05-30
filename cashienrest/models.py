@@ -29,11 +29,18 @@ class Trade(models.Model):
     rates = models.CharField(max_length=10)
     # 1 is usd, 2 is cny, 3 is eur
     currency = models.CharField(max_length = 1)
-    time = models.DateTimeField(auto_now = True)
+    time = models.DateTimeField(auto_now_add = True)
     successful = models.BooleanField(blank=True, null = True)
-    buyerRating = models.CharField(max_length=1, blank=True, null = True)
-    sellerRating = models.CharField(max_length= 1 , blank=True, null = True)
+    buyerRating = models.CharField(max_length=1, blank=True, null = True)   #rating received by buyer
+    sellerRating = models.CharField(max_length= 1 , blank=True, null = True)    # rating received by seller
     timeToProcess = models.CharField(max_length = 5, blank=True, null = True)
+    receipt = models.ImageField(upload_to="cashien/receipts", blank=True, null = True)
+
+    # bank dets
+    bank_name = models.TextField()
+    receiver_name = models.TextField()
+    account_number = models.CharField(max_length = 30)
+    remark = models.TextField(blank = True, null = True)
 
     def __str__(self):
         return self.tradeId
@@ -47,6 +54,7 @@ class Ad(models.Model):
     min_amount = models.IntegerField()
     max_amount = models.IntegerField()
     rates = models.FloatField()
+    is_active = models.BooleanField(default = True)
 
     def __str__(self):
         return f"{self.customer.user.username}"
@@ -58,3 +66,44 @@ class Wallet(models.Model):
     def __str__(self):
 
         return f"Wallet {self.wallet_net}"
+
+
+class TemplateMessage(models.Model):
+    message_id = models.CharField(max_length = 50)
+    message_text = models.TextField()
+    for_buyer = models.BooleanField(blank = True, null = True)
+
+    def __str__(self):
+        return f"{self.message_text} for {self.for_buyer}"
+
+class TradeMessage(models.Model):
+    trade = models.ForeignKey(Trade, on_delete = models.CASCADE)
+    message_text = models.TextField()
+    sender = models.ForeignKey(Customer, on_delete = models.CASCADE)
+    time = models.DateTimeField(auto_now_add = True)
+
+    def __str__(self):
+        return f"Message for trade {trade.tradeId}"
+
+
+class Faq(models.Model):
+    question = models.TextField()
+    answer = models.TextField()
+
+    def __str__(self):
+        return self.question
+
+class TransactionRequest(models.Model):
+    transaction_id = models.CharField(max_length = 30)
+    customer = models.ForeignKey(Customer, on_delete = models.CASCADE)
+    transaction_address = models.TextField()
+    is_deposit = models.BooleanField()
+    amount = models.FloatField(blank = True, null = True)
+    status = models.BooleanField(blank = True, null = True)
+    remark = models.TextField(blank = True, null = True)
+    time = models.DateTimeField(auto_now_add = True)
+    completed = models.DateTimeField(blank = True, null = True)
+
+    def __str__(self):
+        return self.transaction_id
+

@@ -14,5 +14,14 @@ urlpatterns = [
     path("fetch-trades", fetch_trades, name="fetch-trades"),
     path("verify", verify, name="verify"),
     path("verify-id", verify_id, name="verify_id"),
-    path("init-new-trade/", init_new_trade, name="init_new_trade")
+    path("init-new-trade/", init_new_trade, name="init_new_trade"),
+    path("trade<slug:trade_id>/", trade, name="trade"),
+    path("rate-transaction/", rate_transaction, name="rate-transaction"),
+    path("get-cus-ads", get_cus_ads, name="get-cus-ads"),
+    path("delete-ad/", delete_ad, name="delete_ad"),
+    path("create-new-ad/", create_new_ad, name="create-new-ad"),
+    path("get-faqs", get_faqs, name="get-faqs"),
+    path("get-wallet-address", get_wallet_address, name="get_wallet_address"),
+    path("handle-transaction-<slug:transaction_type>/", handle_transaction, name="handle_transaction"),
+    path("reactivate-ad/", reactivate_ad, name="reactivate-ad"),
 ]

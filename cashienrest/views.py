@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.core.files.base import ContentFile
 from django.db.models import Q
 from django.shortcuts import render
@@ -12,11 +13,36 @@ from .serializers import *
 import re, random, string, base64
 
 
+def check_trade_viability(trade):
+    time_left = int(900 - (timezone.now() - trade.time).total_seconds())
+    if time_left <= 0 and trade.successful == None:
+        trade.successful = False
+        trade.save()    
+
+def generate_ad_data(customer):
+    # serialize
+    data = AdSerializer(Ad.objects.filter(customer = customer), many = True).data
+    # append name
+    for d in data:
+        d['customer'] = customer.user.username
+    return data
+
 def gen_cus_data(_user):
     cus_data = CustomerSerializer(Customer.objects.get(user = _user)).data
     cus_data['user'] = _user.username
     
     return cus_data
+
+def gen_trade_data(cus, trade):
+    if int(trade.sellerId) != cus.id and int(trade.buyerId) != cus.id:
+        None
+    check_trade_viability(trade)
+    time_left = int(900 - (timezone.now() - trade.time).total_seconds())
+    trade_data = TradeSerializer(trade).data
+    trade_data['buyerId'] = Customer.objects.get(pk = trade.buyerId).user.username
+    trade_data['sellerId'] = Customer.objects.get(pk = trade.sellerId).user.username
+    trade_data['time_left'] = time_left
+    return trade_data
 
 def is_valid_email(email):
     pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
@@ -28,6 +54,24 @@ def validate(_str, _acceptables):
         if _ not in _acceptables:
             return False
     return True
+
+def validate_ad_input(data):
+    acceptables = ['0','1','2','3','4','5','6','7','8','9']
+    if not validate(data['min'], acceptables):
+        return {"status":False, "msg":"Minimum value must be a number"}
+    if not validate(data['max'], acceptables):
+        return {"status":False, "msg":"Maximum value must be a number"}
+    
+    try:
+        data['rates'] = float(data['rates'])
+    except ValueError:
+        return {"status":False, "msg":"Rates must be a valid number"}
+    
+    if int(data['currency']) <1 or int(data['currency']) > 3:
+        return {"status":False, "msg":"An unexpected error has occured."}
+
+    return {"status":True, "data":data}
+    
 
 
 # Create your views here.
@@ -335,7 +379,14 @@ def create_ads(request):
 
 @api_view(['GET'])
 def getAds(request):
-    ads = Ad.objects.all()
+    # auth
+    try:
+        user = Token.objects.get(key = request.headers['Authorization']).user
+        customer = Customer.objects.get(user = user)
+    except Token.DoesNotExist:
+        return Response({"msg":"Your session has expired, sign in again to continue."}, status = 301)
+    # serailize ad data excluding user own ads
+    ads = Ad.objects.filter(is_active = True).exclude(customer = customer)
     data = AdSerializer(ads, many=True).data
     for _ in data:
         if _['currency'] == "2":
@@ -346,7 +397,9 @@ def getAds(request):
         cus = Customer.objects.get(id = _['customer'])
         _['customer'] = CustomerSerializer(cus).data
         _['customer']['user'] = cus.user.username
+    # sort by user rating
     data = sorted(data, key = lambda x: x['customer']['ratings'], reverse = True)
+    
     context = {'ads':data}
     return Response(context, status = 200)
 
@@ -354,7 +407,9 @@ def getAds(request):
 def fetch_trades(request):
     user = Token.objects.get(key = str(request.headers['Authorization'])).user
     cus = Customer.objects.get(user = user)
-    trades = Trade.objects.filter(Q(buyerId = str(cus.id))|Q(sellerId = str(cus.id))).order_by("time")
+    trades = Trade.objects.filter(Q(buyerId = str(cus.id))|Q(sellerId = str(cus.id))).order_by("-time")
+    for trade in trades:
+        check_trade_viability(trade)
     trades = TradeSerializer(trades, many = True).data
     for trade in trades:
         trade['buyerId'] = Customer.objects.get(id = int(trade['buyerId'])).user.username
@@ -424,5 +479,235 @@ def verify_id(request):
 
 @api_view(['POST'])
 def init_new_trade(request):
-    context={}
+    user =  Token.objects.get(key =  request.headers['Authorization']).user # validate user
+    customer = Customer.objects.get(user = user)
+    # extract data
+    ad = Ad.objects.get(adId = str(request.data['adId']))
+    bank_name = str(request.data['bankName'])
+    account_number = str(request.data['accountNumber'])
+    receiver_name = str(request.data['receiverName'])
+    remark = str(request.data['remark'])
+    amount = str(request.data['amount'])
+
+    # validate data
+    if len(bank_name) < 1:
+        return Response({"msg":"Bank Name cannot be blank."}, status = 400)
+    if len(receiver_name) < 1:
+        return Response({"msg":"Receiver's Name cannot be blank."}, status = 400)
+    try:
+        account_number = int(account_number)
+    except:
+        return Response({"msg":"Invalid account number format."}, status = 400)
+    try:
+        amount = amount.replace(",","")
+        amount = float(amount)
+    except ValueError:
+        return Response({"msg":"Please enter the amount using numbers only. Do not include symbols, spaces, or any non-numeric characters."}, status = 400)
+    if(len(remark) < 1):
+        remark = None
+
+    # create trade
+    if(customer.balance < amount):
+        return Response({"msg":"Insufficient Funds."}, status = 400)
+    if(amount < ad.min_amount or amount > ad.max_amount):
+        return Response({"msg":f"Ensure trade must is between ${ad.min_amount} to ${ad.max_amount}"}, status = 400)
+
+    tradeId = str(random.randint(100000000000000, 99999999999999999))
+
+    trade = Trade.objects.create(tradeId = tradeId, buyerId = str(customer.id), sellerId = ad.customer.id, amount = str(amount), rates = ad.rates, currency = ad.currency, bank_name = bank_name, receiver_name = receiver_name, account_number = account_number, remark = remark )
+    customer.balance = customer.balance - amount
+    customer.save()
+    trade_data = TradeSerializer(trade).data
+    context={'cus_bal' : customer.balance, 'trade_id' : trade.tradeId}
     return Response(context, status = 200)
+
+@api_view(['GET','POST'])
+def trade(request, trade_id):
+    # get user
+    try:
+        user = Token.objects.get(key = request.headers['Authorization']).user
+    except Token.DoesNotExist:
+        return Response({'msg':"Your session has expired. Sign in again to continue"}, status =403)
+    # get customer for this user
+    cus = Customer.objects.get(user = user)
+    # get trade
+    try:
+        trade = Trade.objects.get(tradeId = trade_id)
+    except Trade.DoesNotExist:
+        return Response({'msg':"Trade not found"}, status =400)
+    
+    # generate trade data
+    trade_data = gen_trade_data(cus, trade)
+    if trade_data == None:
+        return Response({'msg':"Trade not found"}, status =400)
+
+    # get templates
+    if cus.id == int(trade.buyerId):
+        templates = TemplateMessageSerializer(TemplateMessage.objects.filter(Q(for_buyer = True)|Q(for_buyer = None)).order_by("?"), many=True).data
+    else:
+        templates = TemplateMessageSerializer(TemplateMessage.objects.filter(Q(for_buyer = False)|Q(for_buyer = None)).order_by("?"), many=True).data
+    
+    #get messages
+    messages = TradeMessageSerializer(TradeMessage.objects.filter(trade = trade).order_by("time"), many = True).data
+
+    for message in messages:
+        message['sender'] = Customer.objects.get(id = message['sender']).user.username
+    
+    return Response({"trade_data" : trade_data, "templates" : templates, "messages" : messages}, status = 200)
+
+
+@api_view(['POST'])
+def rate_transaction(request):
+    user = Token.objects.get(key = request.headers['Authorization']).user
+    cus = Customer.objects.get(user = user)
+    rating = request.data['rating']
+    tradeId = str(request.data['tradeId'])
+    trade = Trade.objects.get(tradeId = tradeId)
+    if cus.id == int(trade.buyerId) and trade.sellerRating == None:
+        
+        trade.sellerRating = str(rating)
+    elif cus.id == int(trade.sellerId) and trade.buyerRating == None:
+        trade.buyerRating = str(rating)
+    trade.save()
+    context = {"seller_rating":trade.sellerRating, "buyerRating":trade.buyerRating}
+    return Response(context, status = 200)
+
+@api_view(['GET'])
+def get_cus_ads(request):
+
+    # fetch user data
+    try:
+        user = Token.objects.get(key = request.headers['Authorization']).user
+    except Token.DoesNotExist:
+        return Response({"msg":"Your session has expiried. Sign in again to continue"}, status = 400)
+    customer = Customer.objects.get(user = user)
+    data = generate_ad_data(customer)
+    return Response({"msg":data}, status = 200)
+
+@api_view(['POST'])
+def delete_ad(request):
+
+    user = Token.objects.get(key = request.headers['Authorization']).user
+    customer = Customer.objects.get(user = user)
+    ad = Ad.objects.get(adId = str(request.data['adId']))
+    if ad.customer != customer:
+        return Response({"msg":"Not Found"}, status = 404)
+    if ad.is_active:
+        ad.is_active = False
+        ad.save()
+    else:
+        ad.delete()
+    
+    data = generate_ad_data(customer)
+    return Response({'msg':data}, status = 200)
+
+
+@api_view(['POST'])
+def create_new_ad(request):
+    # get user details
+    user = Token.objects.get(key = request.headers['Authorization']).user
+    customer = Customer.objects.get(user = user)
+    # ruun validator
+    validated_input = validate_ad_input(request.data)
+    # if not valid, break
+    if not validated_input['status']:
+        return Response({"msg":validated_input['msg']}, status = 400)
+    # filter if ad of same type already exists
+    curr_ads = Ad.objects.filter(customer = customer, currency = validated_input['data']['currency'], is_active = True)
+    if curr_ads:
+        if validated_input['data']['currency'] == "1":
+            ad_curr = "USD"
+        elif validated_input['data']['currency'] == "2":
+            ad_curr = "CNY"
+        elif validated_input['data']['currency'] == "3":
+            ad_curr = "EUR"
+        return Response({"msg":f"Archive your current {ad_curr} ad to continue."}, status = 400)
+    
+    # create ad
+    ad_id = f'{customer.user.username}-{random.randint(100000000, 99999999999999)}'
+    Ad.objects.create(adId = ad_id, customer =customer, currency = validated_input['data']['currency'],
+        min_amount=validated_input['data']['min'], max_amount = validated_input['data']['max'], rates = validated_input['data']['rates'])      
+
+    data = generate_ad_data(customer)
+    return Response({"data":data},status = 200)
+
+
+@api_view(['GET'])
+def get_faqs(request):
+    faqs = FaqSerializer(Faq.objects.all(), many=True).data
+    return Response({"faqs":faqs}, status = 200)
+
+
+@api_view(['GET'])
+def get_wallet_address(request):
+    wallet = Wallet.objects.first()
+    return Response({'address':wallet.wallet_address}, status = 200)
+
+@api_view(['POST', "GET"])
+def handle_transaction(request, transaction_type):
+    try:
+        user = Token.objects.get(key = request.headers['Authorization']).user
+        customer = Customer.objects.get(user = user)
+    except Token.DoesNotExist:
+        return Response({'msg':"Your Session has expired. Sign in again to continue"}, status = 301)
+    if transaction_type == "deposit":
+        address = str(request.data['address'])
+        possible = TransactionRequest.objects.filter(customer = customer, transaction_address = address, is_deposit = True)
+        if len(possible) != 0:
+            return Response({'msg':"Duplicate Transaction"}, status = 400)
+        transaction_id = f'{customer.user.username}{random.randint(100000000000,900000000000)}'       
+        trans = TransactionRequest.objects.create(transaction_id = transaction_id, customer = customer, transaction_address = address, is_deposit = True)
+        trans_data = TransactionRequestSerializer(trans).data
+        return Response({"msg":trans_data}, status = 200)
+    elif transaction_type =="history":
+        history = TransactionRequestSerializer(TransactionRequest.objects.filter(customer = customer).order_by("-time"), many = True).data
+        return Response({'msg':history}, status = 200)
+    elif transaction_type == "withdrawal":
+        address = str(request.data['wallet'])
+        if address == "":
+            return Response({'msg':"Provide a valid wallet address."}, status = 400)
+        try:
+            amount = str(request.data['amount'])
+            sub = str(request.data['sub'])
+            amount = float(str(amount)+'.'+ sub)
+            if customer.balance < amount:
+                return Response({'msg':"Insufficient Funds"}, status = 400)
+        except ValueError:
+            return Response({'msg':"Enter a valid numeric amount."}, status = 400)
+        transaction_id = f'{customer.user.username}{random.randint(100000000000,900000000000)}'       
+        customer.balance -= amount
+        customer.save()
+        trans = TransactionRequest.objects.create(transaction_id = transaction_id, customer = customer, transaction_address = address, is_deposit = False, amount = amount)
+        trans_data = TransactionRequestSerializer(trans).data
+        return Response({"msg":trans_data, "bal":customer.balance}, status = 200)
+    else:
+        return Response({'msg':"An unexpected error has occured."}, status = 400)
+
+@api_view(['POST'])
+def reactivate_ad(request):
+    try:
+        user = Token.objects.get(key = str(request.headers['Authorization'])).user
+        customer = Customer.objects.get(user = user)
+    except Token.DoesNotExist:
+        return Response({'msg':"Your session has expired. Sign in again to continue."}, status = 301)
+    
+    try:
+        ad = Ad.objects.get(adId = str(request.data['adId']))
+    except Ad.DoesNotExist:
+        return Response({'msg':"Ad does not exist."}, status = 400)
+    
+    active_ads = Ad.objects.filter(customer = customer, is_active = True)
+    for active_ad in active_ads:
+        if ad.currency == active_ad.currency:        
+            if ad.currency == "1":
+                ad_curr = "USD"
+            elif ad.currency == "2":
+                ad_curr = "CNY"
+            elif ad.currency == "3":
+                ad_curr = "EUR"
+            return Response({'msg':f"Archive your current {ad_curr} ad to continue."}, status = 400)
+
+    ad.is_active = True
+    ad.save()
+    ads = generate_ad_data(customer)
+    return Response({'ads':ads}, status = 200)

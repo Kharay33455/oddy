@@ -93,7 +93,10 @@ def validate_ad_input(data):
 def login_request(request):
     username = str(request.data['username']).strip()
     password = str(request.data['password']).strip()
-    print(request.data)
+    try:
+        username = Customer.objects.get(email = username).user.username
+    except Customer.DoesNotExist:
+        pass
     user = authenticate(username = username, password = password)
     if user is not None:
         token, created = Token.objects.get_or_create(user = user)

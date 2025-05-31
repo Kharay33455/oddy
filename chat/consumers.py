@@ -1,7 +1,7 @@
 from django.utils import timezone
 from django.core.files.base import ContentFile
 from rest_framework.authtoken.models import Token
-import json, base64
+import json, base64, random
 from cashienrest import models as CashienModels
 from cashienrest import serializers as CashienSerializers
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -9,8 +9,9 @@ from asgiref.sync import sync_to_async
 
 
 class CashienChatConsumer(AsyncWebsocketConsumer):
+
+
     async def connect(self):
-        print("here")
         self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
         self.room_group_name = f"chat_{self.room_name}"
         print(self.scope)
@@ -117,3 +118,76 @@ class CashienChatConsumer(AsyncWebsocketConsumer):
             trade.save()
             context= {"time_to_process" : trade.timeToProcess}
             return context
+
+
+class CashienDisputeConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_name = f"{self.scope['url_route']['kwargs']['room_name']}"
+        self.room_group_name = f"group_dispute_{self.room_name}"
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        token = self.scope['cookies']['token']
+        dispute_data = await sync_to_async(self.validate_user)(token)
+        if dispute_data:
+            await self.accept()
+            await self.send(text_data = json.dumps({'type':"dispute_data","data" : dispute_data}))
+            
+
+
+
+    async def disconnect(self, close_code):
+        # Leave room group
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+    
+    async def receive(self, text_data):
+        text_data_json = json.loads(text_data)
+        if(text_data_json['type'] == "newMessage"):
+            message = await sync_to_async(self.create_new_message)(text_data_json)
+            await self.channel_layer.group_send(
+                self.room_group_name,{"type":"new.message", "message" : message}
+            )
+
+    async def new_message(self, event):
+        await self.send(text_data = json.dumps({"type":"new_message","data":event['message']}))
+
+    def create_new_message(self, event):
+        trade = CashienModels.Trade.objects.get(tradeId = self.room_name)
+        customer = CashienModels.Customer.objects.get(user = Token.objects.get(key = self.scope['cookies']['token']).user)
+        if(event['img'] == None):
+            image = None
+        else:
+            img = event['img']
+            if img.startswith("data:image"):
+                img = img.split(",")[1]
+            random_num = random.randint(10000, 9999999)
+            image = ContentFile(base64.b64decode(img), name = f"dispute{random_num}.jpg")
+        message = CashienModels.DisputeMessage.objects.create(text=event['text'], image = image, trade = trade, sender = customer)
+        message_data = CashienSerializers.DisputeMessageSerializer(message).data
+        message_data['sender'] = customer.user.username
+        return message_data
+
+    def validate_user(self, token):
+        try:
+            user = Token.objects.get(key = token).user
+            customer = CashienModels.Customer.objects.get(user = user)
+            trade = CashienModels.Trade.objects.get(tradeId = self.room_name)
+
+            if int(trade.buyerId) != customer.id and int(trade.sellerId) != customer.id:
+                return False
+            else:
+                trade_data = CashienSerializers.TradeSerializer(trade).data
+                buyer = CashienModels.Customer.objects.get(id = int(trade_data['buyerId']))
+                seller = CashienModels.Customer.objects.get(id = int(trade_data['sellerId']))
+                
+                dispute_messages = CashienSerializers.DisputeMessageSerializer(CashienModels.DisputeMessage.objects.filter(
+                    trade = trade), many = True).data
+                for message in dispute_messages:
+                    if int(message['sender']) == buyer.id:
+                        message['sender'] = buyer.user.username
+                    
+                    elif int(message['sender']) == seller.id:
+                        message['sender'] = seller.user.username
+                print(dispute_messages)
+                return {"trade data" : trade_data, "messages" : dispute_messages}
+        except Token.DoesNotExist:
+            return False
+

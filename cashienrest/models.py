@@ -38,8 +38,9 @@ class Trade(models.Model):
 
     # bank dets
     bank_name = models.TextField()
-    receiver_name = models.TextField()
-    account_number = models.CharField(max_length = 30)
+    receiver_name = models.TextField(null = True, blank = True)
+    account_number = models.CharField(max_length = 30 , null = True, blank = True)
+    qr_code = models.ImageField(upload_to = "qr", null = True, blank = True)
     remark = models.TextField(blank = True, null = True)
 
     def __str__(self):
@@ -55,9 +56,29 @@ class Ad(models.Model):
     max_amount = models.IntegerField()
     rates = models.FloatField()
     is_active = models.BooleanField(default = True)
-
+    terms = models.TextField()
+    
+    # payment methods
+    bank = models.BooleanField(default = True)
+    alipay = models.BooleanField(default = False)
+    wechatpay = models.BooleanField(default = False)
+    paypal = models.BooleanField(default = False)
+    wise = models.BooleanField(default = False)
+    sepa = models.BooleanField(default = False)
+    revolut = models.BooleanField(default = False)
+    swift = models.BooleanField(default = False)
+    payoneer = models.BooleanField(default = False)
+    remitly = models.BooleanField(default = False)
     def __str__(self):
         return f"{self.customer.user.username}"
+
+
+class PaymentMethod(models.Model):
+    ad_id = models.ForeignKey(Ad, on_delete=models.CASCADE)
+    payment = models.CharField(max_length=30)
+
+    def __str__(self):
+        return self.ad_id
 
 class Wallet(models.Model):
     wallet_net = models.CharField(max_length = 20)
@@ -107,3 +128,13 @@ class TransactionRequest(models.Model):
     def __str__(self):
         return self.transaction_id
 
+
+class DisputeMessage(models.Model):
+    trade = models.ForeignKey(Trade, on_delete = models.CASCADE)
+    text = models.TextField(blank = True, null = True)
+    image = models.ImageField(blank = True, null = True, upload_to="dispute")
+    sender = models.ForeignKey(Customer, on_delete = models.CASCADE)
+    time = models.DateTimeField(auto_now = True)
+
+    def __str__(self):
+        return f"Message for dispute {self.trade.tradeId}"

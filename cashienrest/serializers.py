@@ -35,3 +35,8 @@ class TransactionRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransactionRequest
         exclude = ['id']
+
+class DisputeMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DisputeMessage
+        exclude = ['id']

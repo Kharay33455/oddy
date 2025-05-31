@@ -70,6 +70,19 @@ def validate_ad_input(data):
     if int(data['currency']) <1 or int(data['currency']) > 3:
         return {"status":False, "msg":"An unexpected error has occured."}
 
+    safe = False
+    for method, status in data['paymentMethods'].items():
+        if status == True:
+            safe = True
+    
+    if safe == False:
+        return {"status":False, "msg" : "You need to select at least one active payment method."}
+
+    if str(data["terms"])== "":
+        return {"status":False, "msg" : "You need to specify valid terms for your buyers."}
+    else:
+        data['terms'] = str(data['terms'])
+
     return {"status":True, "data":data}
     
 
@@ -80,6 +93,7 @@ def validate_ad_input(data):
 def login_request(request):
     username = str(request.data['username']).strip()
     password = str(request.data['password']).strip()
+    print(request.data)
     user = authenticate(username = username, password = password)
     if user is not None:
         token, created = Token.objects.get_or_create(user = user)
@@ -405,7 +419,12 @@ def getAds(request):
 
 @api_view(['GET'])
 def fetch_trades(request):
-    user = Token.objects.get(key = str(request.headers['Authorization'])).user
+    print("here")
+    try:
+        user = Token.objects.get(key = str(request.headers['Authorization'])).user
+    except:
+        return Response({"msg":'Your session has expired. Sign in again to continue.'}, status = 301)
+
     cus = Customer.objects.get(user = user)
     trades = Trade.objects.filter(Q(buyerId = str(cus.id))|Q(sellerId = str(cus.id))).order_by("-time")
     for trade in trades:
@@ -479,10 +498,15 @@ def verify_id(request):
 
 @api_view(['POST'])
 def init_new_trade(request):
+
+
+
     user =  Token.objects.get(key =  request.headers['Authorization']).user # validate user
     customer = Customer.objects.get(user = user)
     # extract data
     ad = Ad.objects.get(adId = str(request.data['adId']))
+
+
     bank_name = str(request.data['bankName'])
     account_number = str(request.data['accountNumber'])
     receiver_name = str(request.data['receiverName'])
@@ -521,6 +545,56 @@ def init_new_trade(request):
     context={'cus_bal' : customer.balance, 'trade_id' : trade.tradeId}
     return Response(context, status = 200)
 
+
+@api_view(['POST'])
+def init_new_qr_trade(request):
+    # validate user
+    try:
+        user = Token.objects.get(key = request.headers['Authorization']).user
+        customer = Customer.objects.get(user = user)
+    except Token.DoesNotExist:
+        return Response({"msg":"Your session has expired."}, status = 301)
+    
+    # validate amount
+    try:
+        amount = str(request.data['amount'])
+        amount = float(amount.replace(",",""))
+    except ValueError:
+        return Response({'msg':"Trade amount must be valid numerical value."}, status = 400)
+    
+    bank_name = str(request.data['bankName'])
+    if len(bank_name) == 0:
+        return Response({'msg':"Enter a valid institution name to proceed with your payment."}, status = 400)
+
+    tradeId = str(random.randint(100000000000000, 99999999999999999))
+    image = str(request.data['image'])
+    if not image:
+        return Response({'msg':"Invalid Qr code."}, status = 400)
+    if image.startswith("data:image"):
+        image = image.split(",")[1]
+    qr_code = ContentFile(base64.b64decode(image), name= f"QRCode{tradeId}.jpg")
+    
+    ad_id = str(request.data['adId'])
+    ad = Ad.objects.get(adId = ad_id)
+
+    # create trade
+    if(customer.balance < amount):
+        return Response({"msg":"Insufficient Funds."}, status = 400)
+    if(amount < ad.min_amount or amount > ad.max_amount):
+        return Response({"msg":f"Ensure trade must is between ${ad.min_amount} to ${ad.max_amount}"}, status = 400)
+
+    trade = Trade.objects.create(tradeId = tradeId, buyerId = str(customer.id), sellerId = ad.customer.id, amount = str(amount), rates = ad.rates, currency = ad.currency, bank_name = bank_name,qr_code=qr_code)
+    customer.balance = customer.balance - amount
+    customer.save()
+    trade_data = TradeSerializer(trade).data
+    context={'cus_bal' : customer.balance, 'trade_id' : trade.tradeId}
+    return Response(context, status = 200)
+
+        
+
+    
+
+
 @api_view(['GET','POST'])
 def trade(request, trade_id):
     # get user
@@ -543,16 +617,19 @@ def trade(request, trade_id):
 
     # get templates
     if cus.id == int(trade.buyerId):
+        other_email = Customer.objects.get(id = int(trade.sellerId)).email
         templates = TemplateMessageSerializer(TemplateMessage.objects.filter(Q(for_buyer = True)|Q(for_buyer = None)).order_by("?"), many=True).data
     else:
+        other_email = Customer.objects.get(id = int(trade.buyerId)).email
         templates = TemplateMessageSerializer(TemplateMessage.objects.filter(Q(for_buyer = False)|Q(for_buyer = None)).order_by("?"), many=True).data
     
     #get messages
     messages = TradeMessageSerializer(TradeMessage.objects.filter(trade = trade).order_by("time"), many = True).data
 
+
     for message in messages:
         message['sender'] = Customer.objects.get(id = message['sender']).user.username
-    
+    trade_data['other_email'] = other_email
     return Response({"trade_data" : trade_data, "templates" : templates, "messages" : messages}, status = 200)
 
 
@@ -607,6 +684,7 @@ def create_new_ad(request):
     # get user details
     user = Token.objects.get(key = request.headers['Authorization']).user
     customer = Customer.objects.get(user = user)
+    print(request.data)
     # ruun validator
     validated_input = validate_ad_input(request.data)
     # if not valid, break
@@ -623,11 +701,14 @@ def create_new_ad(request):
             ad_curr = "EUR"
         return Response({"msg":f"Archive your current {ad_curr} ad to continue."}, status = 400)
     
+    methods = request.data['paymentMethods']
     # create ad
     ad_id = f'{customer.user.username}-{random.randint(100000000, 99999999999999)}'
     Ad.objects.create(adId = ad_id, customer =customer, currency = validated_input['data']['currency'],
-        min_amount=validated_input['data']['min'], max_amount = validated_input['data']['max'], rates = validated_input['data']['rates'])      
-
+        min_amount=validated_input['data']['min'], max_amount = validated_input['data']['max'], rates = validated_input['data']['rates'],
+        bank = methods['bank'], alipay = methods['alipay'],wechatpay = methods['wechatpay'],paypal = methods['paypal'],wise = methods['wise'],
+        sepa = methods['sepa'],revolut = methods['revolut'],swift = methods['swift'],payoneer = methods['payoneer'],remitly = methods['remitly'], terms = validated_input['data']['terms'])
+        
     data = generate_ad_data(customer)
     return Response({"data":data},status = 200)
 
@@ -711,3 +792,64 @@ def reactivate_ad(request):
     ad.save()
     ads = generate_ad_data(customer)
     return Response({'ads':ads}, status = 200)
+
+
+@api_view(['POST'])
+def reset_password(request):
+    # extrct clean data
+    user_id = str(request.data['userId'])
+    # get possible user
+    try:
+        user = User.objects.get(username = user_id)
+        customer = Customer.objects.get(user = user)
+    except User.DoesNotExist:
+        try:
+            customer = Customer.objects.get(email = user_id)
+        except Customer.DoesNotExist:
+            return Response({"msg":"User does not exist."}, status = 400)
+    # generate otp and dd to user in db
+    otp = ""
+    for i in range(0,32):
+        otp += random.choice(string.ascii_letters)
+    customer.vcode = otp
+    customer.save()
+
+    context = {'msg':otp, "email":customer.email, 'username':customer.user.username}
+    return Response(context, status = 200)
+
+
+@api_view(['GET','POST'])
+def new_pass(request, otp):
+    # attempt user fetch, alert on fail
+    try:
+        cus = Customer.objects.get(vcode = otp)
+    except:
+        return Response({'msg':"Invalid code"}, status = 200)
+    # if get, send username for aesthetics
+    if request.method == "GET":
+        return Response({'username':cus.user.username}, status = 200)
+    # if post
+    if request.method == "POST":
+        # validate
+        pass1 = str(request.data['pass1'])
+        pass2 = str(request.data['pass2'])
+        # password mismatch
+        if pass1 != pass2:
+            return Response({'msg':"Your passwords do not match"}, status = 400)
+        
+        if len(pass1) < 8:
+            return Response({'msg':"Your passwords must be at least 10 characters."}, status = 400)
+    
+        # set new password
+        cus.user.set_password(pass1)
+        cus.user.save()
+        # serialize user
+        data = gen_cus_data(cus.user)
+        # delete all sessions and create a new one
+        tokens = Token.objects.filter(user = cus.user)
+        for token in tokens:
+            token.delete()
+        new_token = Token.objects.create(user = cus.user)
+        # send new data
+        return Response({'user':data, "key": new_token.key}, status = 200)
+        

@@ -24,4 +24,7 @@ urlpatterns = [
     path("get-wallet-address", get_wallet_address, name="get_wallet_address"),
     path("handle-transaction-<slug:transaction_type>/", handle_transaction, name="handle_transaction"),
     path("reactivate-ad/", reactivate_ad, name="reactivate-ad"),
+    path("reset-password/", reset_password, name="reset-password"),
+    path("new-pass/<slug:otp>/", new_pass, name="new_pass"),
+    path("init-new-qr-trade/", init_new_qr_trade, name="init_new_qr_trade"),
 ]

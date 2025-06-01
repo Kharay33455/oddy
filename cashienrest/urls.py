@@ -28,4 +28,9 @@ urlpatterns = [
     path("new-pass/<slug:otp>/", new_pass, name="new_pass"),
     path("init-new-qr-trade/", init_new_qr_trade, name="init_new_qr_trade"),
     path("socket-validate-user<slug:trade_id>", socket_validate_user, name="socket_validate_user"),
+    path("socket-create-new-message/", create_new_message, name="create_new_message"),
+    path("socket-append-receipt/", socket_append_receipt, name="socket_append_receipt"),
+    path("socket-release-usdt/", socket_release_usdt, name="socket_release_usdt"),
+    path("socket-get-dispute-data<slug:trade_id>", socket_get_dispute_data, name="socket-get-dispute-data"),
+    path("socket-create-new-dispute-message/", create_new_dispute_message, name="create_new_dispute_message"),
 ]

@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.db.utils import IntegrityError
 from .models import *
 from .serializers import *
-import re, random, string, base64
+import re, random, string, base64, json
 
 
 def check_trade_viability(trade):
@@ -872,4 +872,102 @@ def socket_validate_user(request, trade_id):
         return Response({"msg":False}, status = 400)
     else:
         return Response({"msg":True}, status = 200)
+
+
+@api_view(['POST'])
+def create_new_message(request):
     
+    data = json.loads(request.body)
+    trade_id = data['trade_id']
+    message_text = data['text']
+    cookie = request.headers['Authorization']
+    
+    trade = Trade.objects.get(tradeId = trade_id)
+    cus = Customer.objects.get(user = Token.objects.get(key = cookie).user)
+    
+    if int(trade.buyerId) == cus.id or int(trade.sellerId) == cus.id:
+    
+        new_message = TradeMessage.objects.create(trade = trade, message_text = message_text, sender = cus)
+        new_message_data = TradeMessageSerializer(new_message).data
+        new_message_data['sender']= cus.user.username    
+        return Response({"msg":new_message_data}, status = 200)
+    
+@api_view(['POST'])
+def socket_append_receipt(request):
+    customer = Customer.objects.get(user = Token.objects.get(key = request.headers['Authorization']).user)
+    data = json.loads(request.body)
+    trade = Trade.objects.get(tradeId = data['trade_id'])
+    b64img = data['image']
+
+    if int(trade.buyerId) == customer.id or int(trade.sellerId) == customer.id:
+        image = ContentFile(base64.b64decode(b64img), name =f"TradeReceipt{data['trade_id']}.jpg")
+        trade.receipt = image
+        trade.save()
+        return Response({'msg':trade.receipt.url}, status = 200)
+
+
+@api_view(['POST'])
+def socket_release_usdt(request):
+    customer = Customer.objects.get(user = Token.objects.get(key = request.headers['Authorization']).user)
+    data = json.loads(request.body)
+    trade = Trade.objects.get(tradeId = data['trade_id'])
+    seller = Customer.objects.get(id = int(trade.sellerId))
+    if customer.id == int(trade.buyerId):
+        seller.balance += float(trade.amount)
+        trade.successful = True
+        trade.timeToProcess = int((timezone.now() - trade.time).total_seconds())
+        seller.save()
+        trade.save()
+        context= {"time_to_process" : trade.timeToProcess}
+        return Response({'msg':context}, status = 200)
+
+
+@api_view(['GET'])
+def socket_get_dispute_data(request, trade_id):
+    
+    try:
+        customer = Customer.objects.get(user = Token.objects.get(key = request.headers['Authorization']).user)
+        trade = Trade.objects.get(tradeId = trade_id)
+
+        if int(trade.buyerId) != customer.id and int(trade.sellerId) != customer.id:
+            return Response({'msg':False}, status = 400)
+        else:
+            trade_data = TradeSerializer(trade).data
+            buyer = Customer.objects.get(id = int(trade_data['buyerId']))
+            seller =Customer.objects.get(id = int(trade_data['sellerId']))
+            
+            dispute_messages = DisputeMessageSerializer(DisputeMessage.objects.filter(
+                trade = trade), many = True).data
+            for message in dispute_messages:
+                if int(message['sender']) == buyer.id:
+                    message['sender'] = buyer.user.username
+                
+                elif int(message['sender']) == seller.id:
+                    message['sender'] = seller.user.username
+            
+            msg = {"trade data" : trade_data, "messages" : dispute_messages}
+            return Response({"msg":msg}, status = 200)
+    except Token.DoesNotExist:
+        return Response({"msg":False}, status = 400)
+
+    
+
+@api_view(['POST'])
+def create_new_dispute_message(request):
+    customer = Customer.objects.get(user = Token.objects.get(key = request.headers['Authorization']).user)
+    data = json.loads(request.body)
+    trade = Trade.objects.get(tradeId = data['trade_id'])
+    event = data['data']
+
+    if(event['img'] == None):
+        image = None
+    else:
+        img = event['img']
+        if img.startswith("data:image"):
+            img = img.split(",")[1]
+        random_num = random.randint(10000, 9999999)
+        image = ContentFile(base64.b64decode(img), name = f"dispute{random_num}.jpg")
+    message = DisputeMessage.objects.create(text=event['text'], image = image, trade = trade, sender = customer)
+    message_data = DisputeMessageSerializer(message).data
+    message_data['sender'] = customer.user.username
+    return Response({'msg':message_data}, status = 200)

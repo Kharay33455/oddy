@@ -27,4 +27,5 @@ urlpatterns = [
     path("reset-password/", reset_password, name="reset-password"),
     path("new-pass/<slug:otp>/", new_pass, name="new_pass"),
     path("init-new-qr-trade/", init_new_qr_trade, name="init_new_qr_trade"),
+    path("socket-validate-user<slug:trade_id>", socket_validate_user, name="socket_validate_user"),
 ]

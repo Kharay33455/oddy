@@ -856,3 +856,19 @@ def new_pass(request, otp):
         # send new data
         return Response({'user':data, "key": new_token.key}, status = 200)
         
+
+@api_view(['GET'])
+def socket_validate_user(request, trade_id):
+    user = Token.objects.get(key = request.headers['Authorization']).user
+    try:
+        trade = Trade.objects.get(tradeId = trade_id)
+    except Trade.DoesNotExist:
+        return Response({"msg":False}, status = 400)
+        
+
+    cus = Customer.objects.get(user = user)
+    if cus.id != int(trade.buyerId) and cus.id != int(trade.sellerId):
+        return Response({"msg":False}, status = 400)
+    else:
+        return Response({"msg":True}, status = 200)
+    

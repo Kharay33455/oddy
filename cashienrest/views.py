@@ -859,6 +859,7 @@ def new_pass(request, otp):
 
 @api_view(['GET'])
 def socket_validate_user(request, trade_id):
+    print(request.headers['Authorization'])
     user = Token.objects.get(key = request.headers['Authorization']).user
     try:
         trade = Trade.objects.get(tradeId = trade_id)

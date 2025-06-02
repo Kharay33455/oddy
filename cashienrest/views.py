@@ -15,7 +15,7 @@ import re, random, string, base64, json
 
 def check_trade_viability(trade):
     time_left = int(900 - (timezone.now() - trade.time).total_seconds())
-    if time_left <= 0 and trade.successful == None:
+    if time_left <= 0 and trade.successful == None and trade.receipt == None:
         trade.successful = False
         trade.save()    
 
@@ -537,7 +537,7 @@ def init_new_trade(request):
     if(customer.balance < amount):
         return Response({"msg":"Insufficient Funds."}, status = 400)
     if(amount < ad.min_amount or amount > ad.max_amount):
-        return Response({"msg":f"Ensure trade must is between ${ad.min_amount} to ${ad.max_amount}"}, status = 400)
+        return Response({"msg":f"Ensure trade must be between ${ad.min_amount} to ${ad.max_amount}"}, status = 400)
 
     tradeId = str(random.randint(100000000000000, 99999999999999999))
 

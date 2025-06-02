@@ -912,7 +912,7 @@ def socket_release_usdt(request):
     data = json.loads(request.body)
     trade = Trade.objects.get(tradeId = data['trade_id'])
     seller = Customer.objects.get(id = int(trade.sellerId))
-    if customer.id == int(trade.buyerId):
+    if customer.id == int(trade.buyerId) and trade.successful != True:
         seller.balance += float(trade.amount)
         trade.successful = True
         trade.timeToProcess = int((timezone.now() - trade.time).total_seconds())
@@ -967,7 +967,7 @@ def create_new_dispute_message(request):
             img = img.split(",")[1]
         random_num = random.randint(10000, 9999999)
         image = ContentFile(base64.b64decode(img), name = f"dispute{random_num}.jpg")
-    message = DisputeMessage.objects.create(text=event['text'], image = image, trade = trade, sender = customer)
+    message = DisputeMessage.objects.create(text=event['text'], image = image, trade = trade, sender = customer, msg_id = event['msg_id'])
     message_data = DisputeMessageSerializer(message).data
     message_data['sender'] = customer.user.username
     return Response({'msg':message_data}, status = 200)

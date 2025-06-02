@@ -102,6 +102,7 @@ class TradeMessage(models.Model):
     message_text = models.TextField()
     sender = models.ForeignKey(Customer, on_delete = models.CASCADE)
     time = models.DateTimeField(auto_now_add = True)
+    is_sent = models.BooleanField(default = True)
 
     def __str__(self):
         return f"Message for trade {trade.tradeId}"
@@ -130,11 +131,13 @@ class TransactionRequest(models.Model):
 
 
 class DisputeMessage(models.Model):
+    msg_id = models.CharField(max_length = 10)
     trade = models.ForeignKey(Trade, on_delete = models.CASCADE)
     text = models.TextField(blank = True, null = True)
     image = models.ImageField(blank = True, null = True, upload_to="dispute")
     sender = models.ForeignKey(Customer, on_delete = models.CASCADE)
     time = models.DateTimeField(auto_now = True)
+    is_sent = models.BooleanField(default = True)
 
     def __str__(self):
         return f"Message for dispute {self.trade.tradeId}"

@@ -96,6 +96,10 @@ CHANNEL_LAYERS = {
     }
 }
 
+# Default is 2.5MB (2621440 bytes)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024  # 10MB, adjust as needed
+
+
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases

@@ -15,7 +15,8 @@ import re, random, string, base64, json
 
 def check_trade_viability(trade):
     time_left = int(900 - (timezone.now() - trade.time).total_seconds())
-    if time_left <= 0 and trade.successful == None and trade.receipt == None:
+
+    if time_left <= 0 and trade.successful == None and not trade.receipt:
         trade.successful = False
         trade.save()    
 

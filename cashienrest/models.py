@@ -105,7 +105,7 @@ class TradeMessage(models.Model):
     is_sent = models.BooleanField(default = True)
 
     def __str__(self):
-        return f"Message for trade {trade.tradeId}"
+        return f"Message for trade {self.trade.tradeId}"
 
 
 class Faq(models.Model):

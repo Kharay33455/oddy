@@ -1026,7 +1026,7 @@ def get_dispute_list_for_admin(request):
         return Response({"msg":"Auth Failed."}, status = 400)
 
     # get disputed trades
-    all_dispute_messages = DisputeMessage.objects.all()
+    all_dispute_messages = DisputeMessage.objects.all().order_by("-time")
     disputed_trades = sort_trades_by_dispute(all_dispute_messages)
 
     return Response({'msg':disputed_trades}, status = 200)

@@ -959,6 +959,8 @@ def socket_get_dispute_data(request, trade_id):
             trade_data = TradeSerializer(trade).data
             buyer = Customer.objects.get(id = int(trade_data['buyerId']))
             seller =Customer.objects.get(id = int(trade_data['sellerId']))
+            trade_data['buyerId'] = buyer.user.username
+            trade_data['sellerId'] = seller.user.username
             request_user = Customer.objects.get(user = user)
             
             dispute_messages = DisputeMessageSerializer(DisputeMessage.objects.filter(

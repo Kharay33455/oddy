@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 class Customer(models.Model):
     user = models.OneToOneField(User, on_delete = models.CASCADE)
     email = models.EmailField()
-    ratings = models.FloatField()
+    ratings = models.FloatField(default = 8.0)
     processingTime = models.IntegerField(null = True, blank = True)
     trades = models.IntegerField(default = 0)
     isBot = models.BooleanField(default = False)

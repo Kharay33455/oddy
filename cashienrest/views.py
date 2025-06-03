@@ -438,7 +438,7 @@ def getAds(request):
         _['customer'] = CustomerSerializer(cus).data
         _['customer']['user'] = cus.user.username
     # sort by user rating
-    print(_)
+    
     data = sorted(data, key = lambda x: x['customer']['ratings'], reverse = True)
     
     context = {'ads':data}

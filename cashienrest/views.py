@@ -13,6 +13,33 @@ from .serializers import *
 import re, random, string, base64, json
 
 
+
+def auth_admin(auth_cookie):
+    try:
+        user = Token.objects.get(key = auth_cookie).user
+    except Token.DoesNotExist:
+        return None
+    if not user.is_staff:
+        return None
+    return user
+
+def sort_trades_by_dispute(dispute_messages):
+    # sort all
+    trade_ids = []
+    for message in dispute_messages:
+        if message.trade.tradeId not in trade_ids:
+            trade_ids.append(message.trade.tradeId)
+
+    # serialize
+    trades = []
+    for trade_id in trade_ids:
+        trade = Trade.objects.get(tradeId = trade_id)
+        trade_data = TradeSerializer(trade).data
+        trade_data['buyerId'] = Customer.objects.get(id = trade_data['buyerId']).user.username
+        trade_data['sellerId'] = Customer.objects.get(id = trade_data['sellerId']).user.username
+        trades.append(trade_data)
+    return trades
+        
 def check_trade_viability(trade):
     time_left = int(900 - (timezone.now() - trade.time).total_seconds())
 
@@ -94,6 +121,7 @@ def validate_ad_input(data):
 def login_request(request):
     username = str(request.data['username']).strip()
     password = str(request.data['password']).strip()
+    print(username, password)
     try:
         username = Customer.objects.get(email = username).user.username
     except Customer.DoesNotExist:
@@ -118,17 +146,11 @@ def registration_request(request):
     password2 = str(request.data['password2']).strip()
     confirm = request.data['terms']
 
-    # validate
-    acceptables = ['A', 'S', 'D', 'F', 'G', 'H','J', 'K', 'L', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '!', '@', '#', '$', '%', '*', '_', '+', '=', '-', '.', ',','q','w','e','r','t','y','u','i','o','p','a','s','d','f','g','h','j','k','l','z','x','c','v','b','n','m']
-    if not validate(username, acceptables):
-        return Response({'msg':"Username contains unallowed characters."}, status = 403)
     if len(username) < 1:
         return Response({'msg' : "Username cannot be blank."}, status = 403)
     
     if not is_valid_email(email):
         return Response({'msg':"Invalid email format"}, status = 403)
-    if not validate(password1, acceptables):
-        return Response({'msg':"Password contains unallowed characters."}, status = 403)
     if len(password1) < 1:
         return Response({'msg' : "Password must be at least 8 characters."}, status = 403)        
     if password1 != password2:
@@ -141,7 +163,7 @@ def registration_request(request):
     if possibles:
         return Response({'msg':"A user with this email already exists."}, status = 403)
     try:
-        user = User.objects.create(username = username, password = password1)
+        user = User.objects.create_user(username = username, password = password1)
     except IntegrityError:
         return Response({'msg':"A user with this username already exists."}, status = 403)
     
@@ -927,15 +949,17 @@ def socket_release_usdt(request):
 def socket_get_dispute_data(request, trade_id):
     
     try:
-        customer = Customer.objects.get(user = Token.objects.get(key = request.headers['Authorization']).user)
+        user = Token.objects.get(key = request.headers['Authorization']).user
+        customer = Customer.objects.get(user = user)
         trade = Trade.objects.get(tradeId = trade_id)
 
-        if int(trade.buyerId) != customer.id and int(trade.sellerId) != customer.id:
+        if int(trade.buyerId) != customer.id and int(trade.sellerId) != customer.id and not user.is_staff:
             return Response({'msg':False}, status = 400)
         else:
             trade_data = TradeSerializer(trade).data
             buyer = Customer.objects.get(id = int(trade_data['buyerId']))
             seller =Customer.objects.get(id = int(trade_data['sellerId']))
+            request_user = Customer.objects.get(user = user)
             
             dispute_messages = DisputeMessageSerializer(DisputeMessage.objects.filter(
                 trade = trade), many = True).data
@@ -945,6 +969,8 @@ def socket_get_dispute_data(request, trade_id):
                 
                 elif int(message['sender']) == seller.id:
                     message['sender'] = seller.user.username
+                else:
+                    message['sender'] = "Cashien Admin"
             
             msg = {"trade data" : trade_data, "messages" : dispute_messages}
             return Response({"msg":msg}, status = 200)
@@ -972,3 +998,33 @@ def create_new_dispute_message(request):
     message_data = DisputeMessageSerializer(message).data
     message_data['sender'] = customer.user.username
     return Response({'msg':message_data}, status = 200)
+
+
+@api_view(['POST'])
+def auth_cashien_admin(request):
+    username = request.data['username']
+    password = request.data['password']
+    print(username, password)
+    user = authenticate(username = username, password = password)
+    if user == None:
+        return Response({"msg":"Incorrect username or password"}, status = 400)
+    try:
+        customer = Customer.objects.get(user = user)
+    except Customer.DoesNotExist:
+        return Response({"msg":"Incorrect username or password"}, status = 400)
+
+    token, created = Token.objects.get_or_create(user = user)
+    return Response({'msg':token.key}, status = 200)
+
+@api_view(['GET'])
+def get_dispute_list_for_admin(request):
+    # auth admin
+    user = auth_admin(request.headers['Authorization'])
+    if user is None:
+        return Response({"msg":"Auth Failed."}, status = 400)
+
+    # get disputed trades
+    all_dispute_messages = DisputeMessage.objects.all()
+    disputed_trades = sort_trades_by_dispute(all_dispute_messages)
+
+    return Response({'msg':disputed_trades}, status = 200)

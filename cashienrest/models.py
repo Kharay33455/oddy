@@ -43,6 +43,9 @@ class Trade(models.Model):
     qr_code = models.ImageField(upload_to = "qr", null = True, blank = True)
     remark = models.TextField(blank = True, null = True)
 
+    # dispute
+    is_disputed = models.BooleanField(blank = True, null = True)
+
     def __str__(self):
         return self.tradeId
 

@@ -8,8 +8,6 @@ urlpatterns = [
     path("register/", registration_request, name="register"),
     path("fetch-user", fetch_user, name="fetch-user"),
     path("logout", logout_request, name="logout"),
-    path("rankers", rankers, name='rankers'),
-    path("create-ads", create_ads, name="create_ads"),
     path("get-ads", getAds, name="get-ads"),
     path("fetch-trades", fetch_trades, name="fetch-trades"),
     path("verify", verify, name="verify"),
@@ -35,4 +33,5 @@ urlpatterns = [
     path("socket-create-new-dispute-message/", create_new_dispute_message, name="create_new_dispute_message"),
     path("auth-cashien-admin", auth_cashien_admin, name='auth_cashien_admin'),
     path("admin-dispute-list", get_dispute_list_for_admin, name="get_dispute_list_for_admin"),
+    path("show", show_bad, name='show_bad')
 ]

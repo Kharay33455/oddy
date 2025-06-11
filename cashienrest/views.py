@@ -244,9 +244,9 @@ def fetch_trades(request):
     return Response(context,status = 200)
 
 
-@api_view(["GET", "POST"])
-def verify(request):
-    if request.method == "POST":
+@api_view(["POST"])
+def verify(request, ver_type):
+    if ver_type == "verify":
         try:
             cus = Customer.objects.get(vcode = request.data['otp'])
             cus.emailVerified = True
@@ -256,17 +256,18 @@ def verify(request):
             return Response({'user': cus_data, 'key' : token.key}, status = 200)
         except:
             return Response({'msg':"Verification failed."}, status = 400)
-    try:
-        user = Token.objects.get(key = request.headers['Authorization']).user
-        otp = ""
-        for i in range(0,32):
-            otp += random.choice(string.ascii_letters)
-        customer = Customer.objects.get(user = user)
-        customer.vcode = otp
-        customer.save()
-    except Token.DoesNotExist:
-        return Response({'msg':"Your session has expired. Sign in again to continue."}, status = 403)
-    return Response({'msg' : otp}, status = 200)
+    elif ver_type == "get-code":
+        try:
+            user = Token.objects.get(key = request.headers['Authorization']).user
+            otp = ""
+            for i in range(0,32):
+                otp += random.choice(string.ascii_letters)
+            customer = Customer.objects.get(user = user)
+            customer.vcode = otp
+            customer.save()
+        except Token.DoesNotExist:
+            return Response({'msg':"Your session has expired. Sign in again to continue."}, status = 403)
+        return Response({'msg' : otp, "email" : customer.email, "username" : customer.user.username}, status = 200)
 
 
 @api_view(["POST"])

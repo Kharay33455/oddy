@@ -605,6 +605,7 @@ def reactivate_ad(request):
 def reset_password(request):
     # extrct clean data
     user_id = str(request.data['userId'])
+    
     # get possible user
     try:
         user = User.objects.get(username = user_id)
@@ -814,13 +815,3 @@ def get_dispute_list_for_admin(request):
 
     return Response({'msg':disputed_trades}, status = 200)
 
-@api_view(['GET'])
-def show_bad(request):
-    trades = Trade.objects.all()
-    for trade in trades:
-        try:
-            trade.buyerId = Customer.objects.get(id = int(trade.buyerId)).user.username
-            trade.sellerId = Customer.objects.get(id = int(trade.sellerId)).user.username
-        except Customer.DoesNotExist:
-            print(trade)
-    return Response(status = 200)

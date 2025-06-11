@@ -815,3 +815,12 @@ def get_dispute_list_for_admin(request):
 
     return Response({'msg':disputed_trades}, status = 200)
 
+@api_view(['GET'])
+def check_rl(request):
+    body = json.loads(request.body)
+    trade = Trade.objects.get(tradeId  = body['trade_id'])
+    customer = Customer.objects.get(user = Token.objects.get(key = request.headers['Authorization']).user)
+    if int(trade.buyerId) == customer.id:
+        return Response({"mail" : customer.email},status = 200)
+    else:
+        return Response(status = 400)

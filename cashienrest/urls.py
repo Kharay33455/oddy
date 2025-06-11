@@ -33,4 +33,5 @@ urlpatterns = [
     path("socket-create-new-dispute-message/", create_new_dispute_message, name="create_new_dispute_message"),
     path("auth-cashien-admin", auth_cashien_admin, name='auth_cashien_admin'),
     path("admin-dispute-list", get_dispute_list_for_admin, name="get_dispute_list_for_admin"),
+    path("set-release-code", check_rl, name="check_rl")
 ]

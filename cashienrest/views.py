@@ -307,13 +307,12 @@ def verify_id(request):
 @api_view(['POST'])
 def init_new_trade(request):
 
-
-
     user =  Token.objects.get(key =  request.headers['Authorization']).user # validate user
     customer = Customer.objects.get(user = user)
     # extract data
     ad = Ad.objects.get(adId = str(request.data['adId']))
-
+    if customer.is_restricted:
+        return Response({"msg":"Your account is restricted."}, status = 400)
 
     bank_name = str(request.data['bankName'])
     account_number = str(request.data['accountNumber'])
@@ -360,6 +359,9 @@ def init_new_qr_trade(request):
     try:
         user = Token.objects.get(key = request.headers['Authorization']).user
         customer = Customer.objects.get(user = user)
+        if customer.is_restricted:
+            return Response({"msg":"Your account is restricted."}, status = 400)
+
     except Token.DoesNotExist:
         return Response({"msg":"Your session has expired."}, status = 301)
     

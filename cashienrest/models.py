@@ -17,6 +17,7 @@ class Customer(models.Model):
     idApproved = models.BooleanField(default = False)
     selfie = models.ImageField(upload_to = "verselfie" , blank = True, null = True)
     selfieApproved = models.BooleanField(default = False)
+    is_restricted = models.BooleanField(default = False)
 
     def __str__(self):
         return self.user.username

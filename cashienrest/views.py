@@ -626,7 +626,8 @@ def reset_password(request):
             return Response({"msg":"User does not exist."}, status = 400)
     
     if customer.vcode_time != None and (timezone.now() - customer.vcode_time).total_seconds()  < 300:
-        time_diff = (timezone.now() - customer.vcode_time).total_seconds()
+        customer.vcode_time = timezone.now()
+        customer.save()
         context = {'msg':customer.vcode, "email":customer.email, 'username':customer.user.username}
         return Response(context, status = 200)
 

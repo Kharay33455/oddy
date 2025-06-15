@@ -13,6 +13,7 @@ class Customer(models.Model):
     balance = models.FloatField(default = 0.0)
     emailVerified = models.BooleanField(default = False)
     vcode = models.CharField(max_length = 64, blank = True, null = True)
+    vcode_time = models.DateTimeField(blank = True, null = True)
     idDocs = models.ImageField(upload_to = "verid", blank = True, null = True)
     idApproved = models.BooleanField(default = False)
     selfie = models.ImageField(upload_to = "verselfie" , blank = True, null = True)

@@ -40,10 +40,8 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "rest_framework",
-    "chat.apps.ChatConfig",
     "cashienrest",
 	"base.apps.BaseConfig",
-    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -86,7 +84,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = "oddy.asgi.application"
+
 
 WSGI_APPLICATION = "oddy.wsgi.application"
 

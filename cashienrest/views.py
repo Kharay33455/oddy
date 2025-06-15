@@ -259,11 +259,17 @@ def verify(request, ver_type):
     elif ver_type == "get-code":
         try:
             user = Token.objects.get(key = request.headers['Authorization']).user
+            customer = Customer.objects.get(user = user)
+            time_diff = (timezone.now() - customer.vcode_time).total_seconds()
+            if customer.vcode_time != None and time_diff  < 300:
+                time_left = int((300 - time_diff)/60)
+                seconds = int((300-time_diff)%60)
+                return Response({'msg':f"You cannot request another code for {time_left} mins, {seconds} seconds."}, status = 400)
             otp = ""
             for i in range(0,32):
                 otp += random.choice(string.ascii_letters)
-            customer = Customer.objects.get(user = user)
             customer.vcode = otp
+            customer.vcode_time = timezone.now()
             customer.save()
         except Token.DoesNotExist:
             return Response({'msg':"Your session has expired. Sign in again to continue."}, status = 403)
@@ -618,6 +624,12 @@ def reset_password(request):
             customer = Customer.objects.get(email = user_id)
         except Customer.DoesNotExist:
             return Response({"msg":"User does not exist."}, status = 400)
+    
+    time_diff = (timezone.now() - customer.vcode_time).total_seconds()
+    if customer.vcode_time != None and time_diff  < 300:
+        context = {'msg':customer.vcode, "email":customer.email, 'username':customer.user.username}
+        return Response(context, status = 200)
+
     # generate otp and dd to user in db
     otp = ""
     for i in range(0,32):

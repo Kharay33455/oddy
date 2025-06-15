@@ -636,6 +636,7 @@ def reset_password(request):
     for i in range(0,32):
         otp += random.choice(string.ascii_letters)
     customer.vcode = otp
+    customer.vcode_time = timezone.now()
     customer.save()
 
     context = {'msg':otp, "email":customer.email, 'username':customer.user.username}

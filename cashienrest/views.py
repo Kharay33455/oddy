@@ -260,8 +260,8 @@ def verify(request, ver_type):
         try:
             user = Token.objects.get(key = request.headers['Authorization']).user
             customer = Customer.objects.get(user = user)
-            time_diff = (timezone.now() - customer.vcode_time).total_seconds()
-            if customer.vcode_time != None and time_diff  < 300:
+            if customer.vcode_time != None and (timezone.now() - customer.vcode_time).total_seconds()  < 300:
+                time_diff = (timezone.now() - customer.vcode_time).total_seconds()
                 time_left = int((300 - time_diff)/60)
                 seconds = int((300-time_diff)%60)
                 return Response({'msg':f"You cannot request another code for {time_left} mins, {seconds} seconds."}, status = 400)
@@ -625,8 +625,8 @@ def reset_password(request):
         except Customer.DoesNotExist:
             return Response({"msg":"User does not exist."}, status = 400)
     
-    time_diff = (timezone.now() - customer.vcode_time).total_seconds()
-    if customer.vcode_time != None and time_diff  < 300:
+    if customer.vcode_time != None and (timezone.now() - customer.vcode_time).total_seconds()  < 300:
+        time_diff = (timezone.now() - customer.vcode_time).total_seconds()
         context = {'msg':customer.vcode, "email":customer.email, 'username':customer.user.username}
         return Response(context, status = 200)
 

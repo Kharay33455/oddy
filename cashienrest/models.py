@@ -131,7 +131,7 @@ class TransactionRequest(models.Model):
     completed = models.DateTimeField(blank = True, null = True)
 
     def __str__(self):
-        return self.transaction_id
+        return f"{self.customer.user.username} for {self.amount} at {self.time} -- {self.status}"
 
 
 class DisputeMessage(models.Model):

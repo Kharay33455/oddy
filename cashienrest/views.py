@@ -560,6 +560,8 @@ def handle_transaction(request, transaction_type):
         history = TransactionRequestSerializer(TransactionRequest.objects.filter(customer = customer).order_by("-time"), many = True).data
         return Response({'msg':history}, status = 200)
     elif transaction_type == "withdrawal":
+        if not customer.idApproved or not customer.selfieApproved:
+            return Response({'msg':"You must complete your verification to proceed."}, status = 400)
         address = str(request.data['wallet'])
         if address == "":
             return Response({'msg':"Provide a valid wallet address."}, status = 400)

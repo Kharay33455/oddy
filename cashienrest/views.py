@@ -651,7 +651,7 @@ def new_pass(request, otp):
     try:
         cus = Customer.objects.get(vcode = otp)
     except:
-        return Response({'msg':"Invalid code"}, status = 200)
+        return Response({'msg':"Invalid code"}, status = 400)
     # if get, send username for aesthetics
     if request.method == "GET":
         return Response({'username':cus.user.username}, status = 200)

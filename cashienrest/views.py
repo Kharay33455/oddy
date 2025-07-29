@@ -797,7 +797,7 @@ def create_new_dispute_message(request):
             img = img.split(",")[1]
         random_num = random.randint(10000, 9999999)
         image = ContentFile(base64.b64decode(img), name = f"dispute{random_num}.jpg")
-    message = DisputeMessage.objects.create(text=event['text'], image = image, trade = trade, sender = customer, msg_id = event['msg_id'])
+    message = DisputeMessage.objects.create(text=event['text'], image = image, trade = trade, sender = customer, msg_id = event['msg_id'], time = timezone.now())
     message_data = DisputeMessageSerializer(message).data
     message_data['sender'] = customer.user.username
     return Response({'msg':message_data}, status = 200)

@@ -144,8 +144,11 @@ class DisputeMessage(models.Model):
     text = models.TextField(blank = True, null = True)
     image = models.ImageField(blank = True, null = True, upload_to="dispute")
     sender = models.ForeignKey(Customer, on_delete = models.CASCADE)
-    time = models.DateTimeField(auto_now = True)
+    time = models.DateTimeField()
     is_sent = models.BooleanField(default = True)
 
     def __str__(self):
-        return f"Message for dispute {self.trade.tradeId}"
+        if self.text:
+            return f"{self.text[:30]}"
+        else:
+            return "Message with no text"

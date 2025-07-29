@@ -711,7 +711,7 @@ def create_new_message(request):
     
     if int(trade.buyerId) == cus.id or int(trade.sellerId) == cus.id:
     
-        new_message = TradeMessage.objects.create(trade = trade, message_text = message_text, sender = cus)
+        new_message = TradeMessage.objects.create(trade = trade, message_text = message_text, sender = cus, time = timezone.now())
         new_message_data = TradeMessageSerializer(new_message).data
         new_message_data['sender']= cus.user.username    
         return Response({"msg":new_message_data}, status = 200)

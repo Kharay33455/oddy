@@ -106,7 +106,7 @@ class TradeMessage(models.Model):
     trade = models.ForeignKey(Trade, on_delete = models.CASCADE)
     message_text = models.TextField()
     sender = models.ForeignKey(Customer, on_delete = models.CASCADE)
-    time = models.DateTimeField(auto_now_add = True)
+    time = models.DateTimeField()
     is_sent = models.BooleanField(default = True)
 
     def __str__(self):

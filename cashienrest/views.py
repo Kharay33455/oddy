@@ -807,13 +807,13 @@ def create_new_dispute_message(request):
 def auth_cashien_admin(request):
     username = request.data['username']
     password = request.data['password']
+    print(username, password)
     
     user = authenticate(username = username, password = password)
     if user == None:
         return Response({"msg":"Incorrect username or password"}, status = 400)
-    try:
-        customer = Customer.objects.get(user = user)
-    except Customer.DoesNotExist:
+    
+    if not user.is_superuser:
         return Response({"msg":"Incorrect username or password"}, status = 400)
 
     token, created = Token.objects.get_or_create(user = user)

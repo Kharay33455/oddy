@@ -177,7 +177,7 @@ def registration_request(request):
     context = {'key' : token.key, 'cus' : cus_data}
     return Response(context, status = 200)
 
-@api_view(['GET'])
+@api_view(['POST'])
 def logout_request(request):
     key = request.headers['Authorization']
     try:
@@ -204,7 +204,7 @@ def getAds(request):
         user = Token.objects.get(key = request.headers['Authorization']).user
         customer = Customer.objects.get(user = user)
     except Token.DoesNotExist:
-        return Response({"msg":"Your session has expired, sign in again to continue."}, status = 301)
+        return Response({"msg":"Your session has expired, sign in again to continue."}, status = 401)
     # serailize ad data excluding user own ads
     ads = Ad.objects.filter(is_active = True).exclude(customer = customer)
     data = AdSerializer(ads, many=True).data
@@ -230,7 +230,7 @@ def fetch_trades(request):
     try:
         user = Token.objects.get(key = str(request.headers['Authorization'])).user
     except:
-        return Response({"msg":'Your session has expired. Sign in again to continue.'}, status = 301)
+        return Response({"msg":'Your session has expired. Sign in again to continue.'}, status = 401)
 
     cus = Customer.objects.get(user = user)
     trades = Trade.objects.filter(Q(buyerId = str(cus.id))|Q(sellerId = str(cus.id))).order_by("-time")
@@ -369,7 +369,7 @@ def init_new_qr_trade(request):
             return Response({"msg":"Your account is restricted."}, status = 400)
 
     except Token.DoesNotExist:
-        return Response({"msg":"Your session has expired."}, status = 301)
+        return Response({"msg":"Your session has expired."}, status = 401)
     
     # validate amount
     try:
@@ -546,7 +546,7 @@ def handle_transaction(request, transaction_type):
         user = Token.objects.get(key = request.headers['Authorization']).user
         customer = Customer.objects.get(user = user)
     except Token.DoesNotExist:
-        return Response({'msg':"Your Session has expired. Sign in again to continue"}, status = 301)
+        return Response({'msg':"Your Session has expired. Sign in again to continue"}, status = 401)
     if transaction_type == "deposit":
         address = str(request.data['address'])
         possible = TransactionRequest.objects.filter(customer = customer, transaction_address = address, is_deposit = True)
@@ -588,7 +588,7 @@ def reactivate_ad(request):
         user = Token.objects.get(key = str(request.headers['Authorization'])).user
         customer = Customer.objects.get(user = user)
     except Token.DoesNotExist:
-        return Response({'msg':"Your session has expired. Sign in again to continue."}, status = 301)
+        return Response({'msg':"Your session has expired. Sign in again to continue."}, status = 401)
     
     try:
         ad = Ad.objects.get(adId = str(request.data['adId']))
